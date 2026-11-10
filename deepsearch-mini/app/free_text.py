@@ -42,10 +42,11 @@ def answer(text: str) -> dict:
     result = []
     for key in sorted(groups):
         incomes = groups[key]
+        valid = [i for i in incomes if i is not None]
         if q["measure"] == "average":
-            value = sum(income or 0 for income in incomes) / len(incomes)
+            value = sum(valid) / len(valid) if valid else None
         elif q["measure"] == "sum":
-            value = sum(income or 0 for income in incomes)
+            value = sum(valid)
         else:
             value = len(incomes)
         result.append({"group": str(key), "value": value})

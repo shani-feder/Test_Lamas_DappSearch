@@ -1,7 +1,7 @@
 """Translates a structured query definition into SQL."""
 
 MEASURES = {
-    "average": "AVG(COALESCE(monthly_income, 0))",
+    "average": "AVG(monthly_income)",
     "sum": "SUM(monthly_income)",
     "count": "COUNT(*)",
 }
@@ -38,7 +38,7 @@ def build_query(q: dict) -> tuple[str, list]:
         params.append(filters["ageFrom"])
 
     if filters.get("ageTo"):
-        where.append("age < ?")
+        where.append("age <= ?")
         params.append(filters["ageTo"])
 
     if filters.get("yearFrom"):
