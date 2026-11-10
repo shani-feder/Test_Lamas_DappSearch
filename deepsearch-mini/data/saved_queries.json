@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "owner": "user1",
+    "name": "דוח חודשי - שכר נשים 25-35 בירושלים",
+    "sql": "SELECT year AS grp, AVG(COALESCE(monthly_income, 0)) AS value FROM person_year WHERE gender = 'F' AND city = 'ירושלים' AND age >= 25 AND age < 35 AND year >= 2021 AND year <= 2024 GROUP BY year ORDER BY year"
+  },
+  {
+    "id": 2,
+    "owner": "user2",
+    "name": "מספר רשומות לפי עיר, 2024",
+    "sql": "SELECT city AS grp, COUNT(*) AS value FROM person_year WHERE year >= 2024 AND year <= 2024 GROUP BY city ORDER BY city"
+  },
+  {
+    "id": 3,
+    "owner": "user3",
+    "name": "שכר ממוצע של נשים באילת",
+    "sql": "SELECT year AS grp, AVG(COALESCE(monthly_income, 0)) AS value FROM person_year WHERE gender = 'F' AND city = 'אילת' GROUP BY year ORDER BY year"
+  },
+  {
+    "id": 4,
+    "owner": "user1",
+    "name": "בדיקה - שכר גבוה",
+    "sql": "SELECT id AS grp, monthly_income AS value FROM person_year WHERE monthly_income > 22000 ORDER BY monthly_income DESC"
+  }
+]
