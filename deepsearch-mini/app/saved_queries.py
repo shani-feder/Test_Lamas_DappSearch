@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from app import db
-from app.query_builder import render_sql
+from app.query_builder import build_query
 
 STORE = Path(__file__).resolve().parent.parent / "data" / "saved_queries.json"
 
@@ -26,7 +26,7 @@ def save(name: str, owner: str, query: dict) -> dict:
         "id": max((item["id"] for item in items), default=0) + 1,
         "owner": owner,
         "name": name,
-        "sql": render_sql(query),
+        "query": query,
     }
     items.append(item)
     _write(items)
@@ -35,7 +35,8 @@ def save(name: str, owner: str, query: dict) -> dict:
 
 def run(saved_id: int) -> dict:
     item = next(item for item in _load() if item["id"] == saved_id)
-    rows = db.execute(item["sql"])
+    sql, params = build_query(item["query"])
+    rows = db.execute(sql, params)
     return {
         "name": item["name"],
         "rows": [{"group": str(row[0]), "value": row[1]} for row in rows],
