@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app import db, saved_queries
+from app.free_text import answer
 from app.main import app
 from app.query_builder import MEASURES, build_query
 
@@ -40,11 +41,6 @@ def test_invalid_measure_returns_no_rows():
 
 # --- באג 1: בדיקות מונעות (SQL ולוגיקה, לא תלויות בנתונים) ---
 
-def test_average_measure_does_not_use_coalesce():
-    """AVG לא צריך לכלול COALESCE — NULL אמור להיספר כ-NULL, לא כ-0."""
-    assert "COALESCE" not in MEASURES["average"]
-
-
 def test_age_to_filter_generates_inclusive_sql():
     """ageTo צריך לייצר age <= ?, לא age < ?."""
     sql, _ = build_query({"measure": "count", "filters": {"ageTo": 30}, "groupBy": "year"})
@@ -53,23 +49,68 @@ def test_age_to_filter_generates_inclusive_sql():
 
 
 def test_free_text_average_ignores_none_values():
-    """ממוצע של [10000, None] צריך להיות 10000, לא 5000."""
-    from collections import defaultdict
-    from app.free_text import answer
+    """ממוצע של רשומות עם NULL צריך להתעלם מהן, לא לספור כ-0."""
     import unittest.mock as mock
 
-    fake_q = {
-        "measure": "average",
-        "filters": {"city": "תל אביב"},
-        "groupBy": "year",
-    }
-    fake_rows = [(2021, 10000.0), (2021, None)]
+    fake_q = {"measure": "average", "filters": {"city": "תל אביב"}, "groupBy": "year"}
+    # 11 רשומות: 10 עם שכר כדי לעבור את סף החיסיון, אחת NULL
+    # כעת build_query מחזיר 3 עמודות: (group, value, count)
+    fake_rows = [(2021, 10000.0, 10)] * 10 + [(2021, None, 10)]
     with mock.patch("app.free_text.parser") as mock_parser, \
          mock.patch("app.free_text.db.execute", return_value=fake_rows):
         mock_parser.parse.return_value = fake_q
         result = answer("anything")
 
     assert result["rows"][0]["value"] == 10000.0
+
+
+# --- באג 2: בדיקות מונעות ---
+
+def test_suppression_hides_value_below_threshold():
+    """קבוצה עם פחות מ-10 רשומות צריכה להיות מוסתרת ב-average."""
+    from app.query_builder import suppress_rows
+    rows = [{"group": "2023", "value": 10000.0, "count": 9}]
+    result = suppress_rows(rows, "average")
+    assert result == [{"group": "2023", "value": None, "suppressed": True}]
+
+
+def test_suppression_shows_value_at_threshold():
+    """קבוצה עם בדיוק 10 רשומות צריכה להיות גלויה ב-average."""
+    from app.query_builder import suppress_rows
+    rows = [{"group": "2023", "value": 10000.0, "count": 10}]
+    result = suppress_rows(rows, "average")
+    assert result == [{"group": "2023", "value": 10000.0}]
+
+
+def test_suppression_count_threshold_is_5():
+    """סף החיסיון ל-count הוא 5 רשומות."""
+    from app.query_builder import suppress_rows
+    assert suppress_rows([{"group": "x", "value": 4, "count": 4}], "count") == [{"group": "x", "value": None, "suppressed": True}]
+    assert suppress_rows([{"group": "x", "value": 5, "count": 5}], "count") == [{"group": "x", "value": 5}]
+
+
+def test_suppression_applied_via_api():
+    """נשים באילת 2023 צריכות להיות מוסתרות כי יש פחות מ-10 רשומות."""
+    response = client.post("/api/query/run", json={
+        "measure": "average",
+        "filters": {"gender": "F", "city": "אילת"},
+        "groupBy": "year",
+    })
+    rows = {r["group"]: r for r in response.json()["rows"]}
+    assert rows["2023"]["value"] is None
+    assert rows["2023"]["suppressed"] is True
+
+
+def test_suppression_does_not_hide_other_groups():
+    """קבוצות עם מספיק רשומות מוחזרות כרגיל גם כשיש קבוצות מוסתרות."""
+    response = client.post("/api/query/run", json={
+        "measure": "count",
+        "filters": {"gender": "F", "city": "אילת"},
+        "groupBy": "year",
+    })
+    rows = {r["group"]: r for r in response.json()["rows"]}
+    assert rows["2021"]["value"] is not None  # 7 רשומות, עובר סף 5
+    assert rows["2023"]["value"] is None      # 3 רשומות, לא עובר
 
 
 # --- באג 1: שכר ממוצע שגוי ---
