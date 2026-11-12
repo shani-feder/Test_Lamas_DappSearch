@@ -1,54 +1,16 @@
 """Free-text questions: the LLM turns the question into a query, and we compute the answer."""
-from collections import defaultdict
-
 from app import db
 from app.llm_parser import MockLLMParser
 from app.phrasing import describe
+from app.query_builder import build_query, suppress_rows
 
 parser = MockLLMParser()
-
-# filter name -> (column, operator)
-FILTERS = {
-    "gender": ("gender", "="),
-    "city": ("city", "="),
-    "ageFrom": ("age", ">="),
-    "ageTo": ("age", "<="),
-    "yearFrom": ("year", ">="),
-    "yearTo": ("year", "<="),
-}
 
 
 def answer(text: str) -> dict:
     """Answer a free-text question."""
     q = parser.parse(text)
-
-    conditions = ["1 = 1"]
-    params = []
-    for name, value in q["filters"].items():
-        column, operator = FILTERS[name]
-        conditions.append(f"{column} {operator} ?")
-        params.append(value)
-
-    group_by = q["groupBy"]
-    rows = db.execute(
-        f"SELECT {group_by}, monthly_income FROM person_year WHERE {' AND '.join(conditions)}",
-        params,
-    )
-
-    groups = defaultdict(list)
-    for key, income in rows:
-        groups[key].append(income)
-
-    result = []
-    for key in sorted(groups):
-        incomes = groups[key]
-        valid = [i for i in incomes if i is not None]
-        if q["measure"] == "average":
-            value = sum(valid) / len(valid) if valid else None
-        elif q["measure"] == "sum":
-            value = sum(valid)
-        else:
-            value = len(incomes)
-        result.append({"group": str(key), "value": value})
-
-    return {"question": describe(q), "interpreted": q, "rows": result}
+    sql, params = build_query(q)
+    rows = db.execute(sql, params)
+    raw = [{"group": str(row[0]), "value": row[1], "count": row[2]} for row in rows]
+    return {"question": describe(q), "interpreted": q, "rows": suppress_rows(raw, q["measure"])}
