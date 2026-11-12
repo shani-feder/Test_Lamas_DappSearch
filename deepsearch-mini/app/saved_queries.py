@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 from app import db
-from app.query_builder import build_query
+from app.query_builder import build_query, suppress_rows
 
 STORE = Path(__file__).resolve().parent.parent / "data" / "saved_queries.json"
 
@@ -37,7 +37,8 @@ def run(saved_id: int) -> dict:
     item = next(item for item in _load() if item["id"] == saved_id)
     sql, params = build_query(item["query"])
     rows = db.execute(sql, params)
+    raw = [{"group": str(row[0]), "value": row[1], "count": row[2]} for row in rows]
     return {
         "name": item["name"],
-        "rows": [{"group": str(row[0]), "value": row[1]} for row in rows],
+        "rows": suppress_rows(raw, item["query"]["measure"]),
     }
