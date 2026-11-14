@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app import saved_queries
+from app import db, saved_queries
 from app.free_text import answer
 from app.main import app
 from app.query_builder import MEASURES, build_query
@@ -25,6 +25,15 @@ def test_question_text():
     response = client.post("/api/query/run", json=EXAMPLE)
     assert "נשים" in response.json()["question"]
 
+
+
+def test_api_matches_query_builder():
+    """ה-API מחזיר את אותם ערכים כמו build_query, עבור שורות שעוברות סף חיסיון."""
+    sql, params = build_query(EXAMPLE)
+    expected = [row[1] for row in db.execute(sql, params) if row[2] >= 10]
+    response = client.post("/api/query/run", json=EXAMPLE)
+    actual = [row["value"] for row in response.json()["rows"] if not row.get("suppressed")]
+    assert actual == expected
 
 
 def test_invalid_measure_returns_no_rows():
