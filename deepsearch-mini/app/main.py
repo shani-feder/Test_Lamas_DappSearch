@@ -3,7 +3,8 @@ from fastapi import FastAPI
 
 from app import db, free_text, saved_queries
 from app.phrasing import describe
-from app.query_builder import MEASURES, build_query, suppress_rows
+from app.query_builder import MEASURES
+from app.query_runner import execute_query
 
 app = FastAPI(title="Deep Search mini")
 
@@ -13,12 +14,9 @@ def run_query(q: dict):
     """Run a structured query definition."""
     if q.get("measure") not in MEASURES:
         return {"question": "", "rows": []}
-    sql, params = build_query(q)
-    rows = db.execute(sql, params)
-    raw = [{"group": str(row[0]), "value": row[1], "count": row[2]} for row in rows]
     return {
         "question": describe(q),
-        "rows": suppress_rows(raw, q["measure"]),
+        "rows": execute_query(q),
     }
 
 

@@ -57,7 +57,7 @@ def test_free_text_average_ignores_none_values():
     # כעת build_query מחזיר 3 עמודות: (group, value, count)
     fake_rows = [(2021, 10000.0, 10)] * 10 + [(2021, None, 10)]
     with mock.patch("app.free_text.parser") as mock_parser, \
-         mock.patch("app.free_text.db.execute", return_value=fake_rows):
+         mock.patch("app.query_runner.db.execute", return_value=fake_rows):
         mock_parser.parse.return_value = fake_q
         result = answer("anything")
 
@@ -170,6 +170,29 @@ def test_ask_free_text():
     )
     assert response.status_code == 200
     assert len(response.json()["rows"]) == 4
+
+
+def test_all_execution_paths_return_same_rows(tmp_path, monkeypatch):
+    """כל מסלול שמשתמש ב-execute_query מחזיר אותן תוצאות."""
+    import unittest.mock as mock
+    from app.query_runner import execute_query
+
+    store = tmp_path / "saved.json"
+    store.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(saved_queries, "STORE", store)
+
+    expected = execute_query(EXAMPLE)
+
+    direct = client.post("/api/query/run", json=EXAMPLE).json()["rows"]
+
+    saved_id = client.post("/api/saved", json={"name": "t", "owner": "u", "query": EXAMPLE}).json()["id"]
+    saved = client.post(f"/api/saved/{saved_id}/run").json()["rows"]
+
+    with mock.patch("app.free_text.parser") as mock_parser:
+        mock_parser.parse.return_value = EXAMPLE
+        free = client.post("/api/ask", json={"text": "anything"}).json()["rows"]
+
+    assert direct == saved == free == expected
 
 
 def test_saved_queries_are_listed_and_run(tmp_path, monkeypatch):

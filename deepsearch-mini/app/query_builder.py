@@ -79,13 +79,5 @@ def build_query(q: dict) -> tuple[str, list]:
     return sql, params
 
 
-def render_sql(q: dict) -> str:
-    """Return the query as one SQL string with the values inlined.
-
-    Used when a query is saved, so it can be run again later exactly as it was.
-    """
-    sql, params = build_query(q)
-    for value in params:
-        literal = f"'{value}'" if isinstance(value, str) else str(value)
-        sql = sql.replace("?", literal, 1)
-    return sql
+# Saved queries always re-run through build_query, so they automatically
+# reflect any future fixes or changes to the query logic.
