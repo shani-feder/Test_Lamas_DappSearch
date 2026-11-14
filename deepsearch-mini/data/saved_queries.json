@@ -15,7 +15,7 @@
     "name": "מספר רשומות לפי עיר, 2024",
     "query": {
       "measure": "count",
-      "filters": {"yearFrom": 2024, "yearTo": 2024},
+      "filters": {"yearFrom": 2024,"yearTo": 2024},
       "groupBy": "city"
     }
   },
@@ -25,7 +25,18 @@
     "name": "שכר ממוצע של נשים באילת",
     "query": {
       "measure": "average",
-      "filters": {"gender": "F", "city": "אילת"},
+      "filters": {"gender": "F","city": "אילת"
+      },
+      "groupBy": "year"
+    }
+  },
+  {
+    "id": 4,
+    "owner": "me",
+    "name": "דוח שנתי-שכר נשים בירושלים בגילאי 25-37",
+    "query": {
+      "measure": "average",
+      "filters": {"gender": "F","city": "ירושלים","ageFrom": 25,"ageTo": 37,"yearFrom": 2021,"yearTo": 2024},
       "groupBy": "year"
     }
   }

@@ -172,6 +172,14 @@ def test_ask_free_text():
     assert len(response.json()["rows"]) == 4
 
 
+def test_saved_query_4_returns_correct_average():
+    """השאילתה השמורה id=4 צריכה להחזיר 11411 לשנת 2021."""
+    response = client.post("/api/saved/4/run")
+    rows = response.json()["rows"]
+    value_2021 = next(r["value"] for r in rows if r["group"] == "2021")
+    assert round(value_2021) == 11411
+
+
 def test_all_execution_paths_return_same_rows(tmp_path, monkeypatch):
     """כל מסלול שמשתמש ב-execute_query מחזיר אותן תוצאות."""
     import unittest.mock as mock
