@@ -12,6 +12,12 @@ SUPPRESSION_THRESHOLD = {
     "count": 5,
 }
 
+COUNT_FIELD = {
+    "average": "count",
+    "sum": "count",
+    "count": "total_count",
+}
+
 
 def suppress_rows(rows: list[dict], measure: str) -> list[dict]:
     """Hide values that are based on too few records.
@@ -20,9 +26,10 @@ def suppress_rows(rows: list[dict], measure: str) -> list[dict]:
     Returns rows with value=None and suppressed=True where the threshold is not met.
     """
     threshold = SUPPRESSION_THRESHOLD[measure]
+    count_field = COUNT_FIELD[measure]
     result = []
     for row in rows:
-        if row["count"] < threshold:
+        if row[count_field] < threshold:
             result.append({"group": row["group"], "value": None, "suppressed": True})
         else:
             result.append({"group": row["group"], "value": row["value"]})
@@ -71,7 +78,7 @@ def build_query(q: dict) -> tuple[str, list]:
         where.append("year <= ?")
         params.append(filters["yearTo"])
 
-    sql = f"SELECT {group_by} AS grp, {measure} AS value, COUNT(monthly_income) AS count FROM person_year"
+    sql = f"SELECT {group_by} AS grp, {measure} AS value, COUNT(monthly_income) AS count, COUNT(*) AS total_count FROM person_year"
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += f" GROUP BY {group_by} ORDER BY {group_by}"
